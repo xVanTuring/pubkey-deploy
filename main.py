@@ -48,7 +48,7 @@ def detect_pubkey():
     if local_pub_key_name is not None:
         user_specify_path = pathlib.Path(local_pub_key_name)
         if not user_specify_path.exists() or not user_specify_path.is_file():
-            logger.info(
+            logger.error(
                 "The pubkey you specified is a not valid file or not exists yet"
             )
             return None
@@ -59,6 +59,7 @@ def detect_pubkey():
         pubkey = ssh_path.joinpath(candicate)
         if pubkey.exists() and pubkey.is_file():
             return pubkey
+    logger.error("no pubkey founded in ~/.ssh named id_ed25519.pub nor id_rsa.pub")
     return None
 
 
@@ -67,14 +68,14 @@ async def upload_local_pubkey(gist_auth: str, gist: gists.Gist):
     current_content = gist_file.content
 
     if gist_auth is None:
-        logger.info("No Gist Auth key provided.")
+        logger.error("No Gist Auth key provided.")
         return
     await client.authorize(gist_auth)
     logger.info(f"Authorized as {gist_auth[:-8]}{'x'*8}")
 
     pubkey_path = detect_pubkey()
     if pubkey_path is None:
-        logger.info("Stop now.")
+        logger.error("Stop now.")
         return
     with open(pubkey_path, "r") as local_key:
         content = local_key.read()
@@ -91,6 +92,9 @@ async def upload_local_pubkey(gist_auth: str, gist: gists.Gist):
 async def main():
     gist_id = os.getenv("GIST_ID")
     gist_auth = os.getenv("GIST_AUTH")
+    if gist_id is None:
+        logger.error("env GIST_ID is not provided")
+        return
     logger.info(f"Using Gist Id {gist_id}")
 
     gist = await client.get_gist(gist_id)

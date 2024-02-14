@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 client = gists.Client()
 
 
-def save_gist_pubkeys_to_auth(pubkeys: str, dry_run: bool):
+def save_gist_pub_keys_to_auth(pub_keys: str, dry_run: bool):
     auth_key_path = pathlib.Path(pathlib.Path.home(), ".ssh/authorized_keys")
     if not auth_key_path.exists():
         if not auth_key_path.parent.exists():
@@ -18,13 +18,13 @@ def save_gist_pubkeys_to_auth(pubkeys: str, dry_run: bool):
             if not dry_run:
                 auth_key_path.parent.mkdir(exist_ok=True)
 
-        logger.info(f"Writing following pubkeys to {auth_key_path.absolute()}")
-        logger.info(pubkeys)
+        logger.info(f"Writing following pub_keys to {auth_key_path.absolute()}")
+        logger.info(pub_keys)
         if not dry_run:
-            auth_key_path.write_text(pubkeys)
+            auth_key_path.write_text(pub_keys)
         return
-    logger.info(f"Appending following pubkeys to {auth_key_path.absolute()}")
-    logger.info(pubkeys)
+    logger.info(f"Appending following pub_keys to {auth_key_path.absolute()}")
+    logger.info(pub_keys)
     if dry_run:
         return
     all_content = auth_key_path.read_text()
@@ -35,10 +35,10 @@ def save_gist_pubkeys_to_auth(pubkeys: str, dry_run: bool):
         start_idx = all_content.find(start_sign) + len(start_sign)
         end_idx = all_content.find(end_sign)
         all_content = "\n".join(
-            [all_content[:start_idx], pubkeys, all_content[end_idx:]]
+            [all_content[:start_idx], pub_keys, all_content[end_idx:]]
         )
     else:
-        all_content = "\n".join([all_content, start_sign, pubkeys, end_sign])
+        all_content = "\n".join([all_content, start_sign, pub_keys, end_sign])
     shutil.copy2(auth_key_path, auth_key_path.with_suffix(".pubkey-bak"))
     auth_key_path.write_text(all_content)
 
@@ -55,8 +55,8 @@ def detect_pubkey():
         return user_specify_path
 
     ssh_path = pathlib.Path(pathlib.Path.home(), ".ssh")
-    for candicate in ["id_ed25519.pub", "id_rsa.pub"]:
-        pubkey = ssh_path.joinpath(candicate)
+    for candidate in ["id_ed25519.pub", "id_rsa.pub"]:
+        pubkey = ssh_path.joinpath(candidate)
         if pubkey.exists() and pubkey.is_file():
             return pubkey
     logger.error("no pubkey founded in ~/.ssh named id_ed25519.pub nor id_rsa.pub")
@@ -100,8 +100,9 @@ async def main():
     gist = await client.get_gist(gist_id)
     assert len(gist.files) == 1
     content = gist.files[0].content
-    save_gist_pubkeys_to_auth(content, False)
-    await upload_local_pubkey(gist_auth, gist)
+    save_gist_pub_keys_to_auth(content, False)
+    if gist_auth is not None:
+        await upload_local_pubkey(gist_auth, gist)
 
 
 if __name__ == "__main__":

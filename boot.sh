@@ -10,8 +10,8 @@ encryped_auth="U2FsdGVkX1/uq7o+eLF0dCNa6CbH0pmAP0QxrObcEZY3G+WMg5PSgi6BZqkJ6tbHx
 encryped_id="U2FsdGVkX19vGRc4JhSylIpAB/WCmHiyC0toEnT/r+l4RFMtxEi0ZJUuCpXodQSy+fWL/TQAXT4R9V+667YSTw=="
 
 
-echo "Please input password: "
-read password
+# echo "Please input password: "
+read -p "Enter password: " password
 echo "source /opt/pubkey-deploy/venv/bin/activate" > cron-job.sh
 decryped_auth=$(echo $encryped_auth | openssl enc -aes128 -pbkdf2 -a -d -k $password)
 decryped_id=$(echo $encryped_id | openssl enc -aes128 -pbkdf2 -a -d -k $password)
@@ -21,7 +21,7 @@ echo "python3 /opt/pubkey-deploy/main.py" >> cron-job.sh
 
 
 python3 -m venv venv
-source venv/bin/active
+source venv/bin/activate
 pip install -r requirements.txt
 
 bash cron-job.sh

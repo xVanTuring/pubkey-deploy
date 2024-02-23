@@ -10,37 +10,40 @@ logger = logging.getLogger(__name__)
 client = gists.Client()
 
 
-def save_gist_pubkeys_to_auth(pubkeys: str, dry_run: bool):
-    auth_key_path = pathlib.Path(pathlib.Path.home(), ".ssh/authorized_keys")
-    if not auth_key_path.exists():
-        if not auth_key_path.parent.exists():
-            logger.info(f"Creating folder {auth_key_path.parent}")
+def save_gist_pub_keys_to_auth(pub_keys: str, dry_run: bool):
+    authorized_keys_path = pathlib.Path.home().joinpath(".ssh/authorized_keys")
+    if not authorized_keys_path.exists():
+        if not authorized_keys_path.parent.exists():
+            logger.info(f"Creating folder {authorized_keys_path.parent}")
             if not dry_run:
-                auth_key_path.parent.mkdir(exist_ok=True)
+                authorized_keys_path.parent.mkdir(exist_ok=True)
 
-        logger.info(f"Writing following pubkeys to {auth_key_path.absolute()}")
-        logger.info(pubkeys)
+        logger.info(f"Writing following pub_keys to {authorized_keys_path.absolute()}")
+        logger.info(pub_keys)
         if not dry_run:
-            auth_key_path.write_text(pubkeys)
+            authorized_keys_path.write_text(pub_keys)
         return
-    logger.info(f"Appending following pubkeys to {auth_key_path.absolute()}")
-    logger.info(pubkeys)
+    logger.info(f"Appending following pub_keys to {authorized_keys_path.absolute()}")
+    logger.info(pub_keys)
     if dry_run:
         return
-    all_content = auth_key_path.read_text()
+    apply_pub_keys_to_file(authorized_keys_path, pub_keys)
 
+
+def apply_pub_keys_to_file(authorized_keys_path: pathlib.Path, pub_keys: str):
+    all_content = authorized_keys_path.read_text()
     start_sign = "# Pubauth Start(do not edit)"
     end_sign = "# Pubauth End(do not edit)"
     if start_sign in all_content and end_sign in all_content:
         start_idx = all_content.find(start_sign) + len(start_sign)
         end_idx = all_content.find(end_sign)
-        all_content = "\n".join(
-            [all_content[:start_idx], pubkeys, all_content[end_idx:]]
-        )
+        contents = [all_content[:start_idx], pub_keys, all_content[end_idx:]]
     else:
-        all_content = "\n".join([all_content, start_sign, pubkeys, end_sign])
-    shutil.copy2(auth_key_path, auth_key_path.with_suffix(".pubkey-bak"))
-    auth_key_path.write_text(all_content)
+        contents = [all_content, start_sign, pub_keys, end_sign]
+
+    all_content = "\n".join(contents)
+    shutil.copy2(authorized_keys_path, authorized_keys_path.with_suffix(".pubkey-bak"))
+    authorized_keys_path.write_text(all_content)
 
 
 def detect_pubkey():
@@ -54,9 +57,9 @@ def detect_pubkey():
             return None
         return user_specify_path
 
-    ssh_path = pathlib.Path(pathlib.Path.home(), ".ssh")
-    for candicate in ["id_ed25519.pub", "id_rsa.pub"]:
-        pubkey = ssh_path.joinpath(candicate)
+    ssh_config_folder = pathlib.Path.home().joinpath(".ssh")
+    for candidate in ["id_ed25519.pub", "id_rsa.pub"]:
+        pubkey = ssh_config_folder.joinpath(candidate)
         if pubkey.exists() and pubkey.is_file():
             return pubkey
     logger.error("no pubkey founded in ~/.ssh named id_ed25519.pub nor id_rsa.pub")
@@ -71,7 +74,7 @@ async def upload_local_pubkey(gist_auth: str, gist: gists.Gist):
         logger.error("No Gist Auth key provided.")
         return
     await client.authorize(gist_auth)
-    logger.info(f"Authorized as {gist_auth[:-8]}{'x'*8}")
+    logger.info(f"Authorized as {gist_auth[:-8]}{'x' * 8}")
 
     pubkey_path = detect_pubkey()
     if pubkey_path is None:
@@ -80,7 +83,7 @@ async def upload_local_pubkey(gist_auth: str, gist: gists.Gist):
     with open(pubkey_path, "r") as local_key:
         content = local_key.read()
         if content in current_content:
-            logger.info("Local pubkey is listed in remtoe pubkey skipping upload")
+            logger.info("Local pubkey is listed in remote pubkey skipping upload")
             return
         current_content += "\n"
         current_content += content
@@ -100,8 +103,9 @@ async def main():
     gist = await client.get_gist(gist_id)
     assert len(gist.files) == 1
     content = gist.files[0].content
-    save_gist_pubkeys_to_auth(content, False)
-    await upload_local_pubkey(gist_auth, gist)
+    save_gist_pub_keys_to_auth(content, False)
+    if gist_auth is not None:
+        await upload_local_pubkey(gist_auth, gist)
 
 
 if __name__ == "__main__":
